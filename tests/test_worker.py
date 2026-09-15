@@ -363,6 +363,7 @@ async def test_an_oversized_clip_is_reported_by_its_overflow_locator(
         await drain(harness.queue)
 
     verdict = next(text for text in edited_texts(harness) if overflow.location in text)
+    assert f":\n\n<code>{overflow.location}</code>" in verdict
     # The source message is deleted on success, so the verdict itself must
     # carry the tweet's footer.
     assert texts.OPEN_IN.format(provider=PROVIDER_NAME) in verdict
@@ -374,6 +375,25 @@ async def test_an_oversized_clip_is_reported_by_its_overflow_locator(
     assert finish.parse_mode == "HTML"
     # The path IS the result, so nothing is deleted.
     assert not harness.session.calls_of(DeleteMessage)
+
+
+async def test_the_code_formatted_overflow_locator_is_html_escaped(
+    harness: BotHarness, settings: Settings
+) -> None:
+    overflow = OverflowDelivery(
+        size_bytes=120 * 1024 * 1024,
+        adapter_label="<Share>",
+        location=r"\\router\<share>&\clip.mp4",
+    )
+    worker = build_worker(harness, settings, delivery=FakeDelivery(result=overflow))
+
+    async with running(worker):
+        harness.queue.submit(make_request(harness, overflow=READY))
+        await drain(harness.queue)
+
+    verdict = edited_texts(harness)[-1]
+    assert "Delivered through &lt;Share&gt;" in verdict
+    assert r"<code>\\router\&lt;share&gt;&amp;\clip.mp4</code>" in verdict
 
 
 async def test_the_overflow_verdict_escapes_the_tweets_text(
