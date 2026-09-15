@@ -3,6 +3,7 @@
 import logging
 
 from aiogram import F, Router
+from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
@@ -23,14 +24,14 @@ def _keyboard(catalog: OverflowCatalog) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text=(
-                        f"{texts.OVERFLOW_CURRENT_MARKER}{texts.overflow_label(choice)}"
+                        f"{texts.overflow_label(choice)}{texts.OVERFLOW_CURRENT_MARKER}"
                         if choice.adapter_id == current_id
                         else texts.overflow_label(choice)
                     ),
                     callback_data=f"{_CALLBACK_PREFIX}{choice.adapter_id}",
                 )
+                for choice in catalog.selectable
             ]
-            for choice in catalog.selectable
         ]
     )
 
@@ -46,6 +47,7 @@ async def show_overflow_menu(
         return
     await message.answer(
         texts.overflow_menu(overflow_catalog),
+        parse_mode=ParseMode.HTML,
         reply_markup=_keyboard(overflow_catalog),
     )
 
@@ -79,6 +81,7 @@ async def select_overflow(
         try:
             await callback.message.edit_text(
                 texts.overflow_menu(overflow_catalog),
+                parse_mode=ParseMode.HTML,
                 reply_markup=_keyboard(overflow_catalog),
             )
         except Exception as exc:
