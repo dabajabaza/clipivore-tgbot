@@ -1,14 +1,17 @@
 """Only the Owner can inspect and change Overflow delivery from Menu."""
 
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
+from aiogram.enums import ParseMode
 from aiogram.methods import AnswerCallbackQuery, EditMessageText, SendMessage, SetMyCommands
 from aiogram.types import BotCommandScopeChat
 
 from clipivore.__main__ import _set_commands
 from clipivore.bot import texts
 from clipivore.bot.handlers.overflow import _keyboard
-from clipivore.services.overflow import OverflowCatalog
+from clipivore.services.overflow import OverflowCatalog, OverflowChoice, OverflowState
 from tests.helpers.bot_harness import BotHarness
 from tests.helpers.factories import GUEST_ID, OWNER_ID
 
@@ -22,6 +25,7 @@ async def test_the_owner_sees_the_overflow_command(harness: BotHarness) -> None:
     sent = harness.session.calls_of(SendMessage)
     assert len(sent) == 1
     assert sent[0].text == texts.overflow_menu(harness.overflow_catalog)
+    assert sent[0].parse_mode == ParseMode.HTML
     assert sent[0].reply_markup is not None
 
 
@@ -76,6 +80,7 @@ async def test_the_owner_can_choose_from_the_inline_menu(
         if isinstance(call, EditMessageText)
     )
     assert answer_index < edit_index
+    assert harness.session.calls_of(EditMessageText)[0].parse_mode == ParseMode.HTML
 
 
 async def test_a_failed_menu_refresh_does_not_lose_the_callback_answer(
@@ -113,14 +118,17 @@ async def test_a_guest_callback_is_silent(harness: BotHarness) -> None:
 
 def test_only_working_adapters_become_buttons(tmp_path: Path) -> None:
     catalog = OverflowCatalog(FAKES, state_file=tmp_path / "selection")
+    keyboard = _keyboard(catalog)
 
-    labels = [button.text for row in _keyboard(catalog).inline_keyboard for button in row]
+    labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
-    assert labels == ["✓ Off", "Test destination"]
+    assert labels == ["Off ✓", "Test destination"]
+    assert len(keyboard.inline_keyboard) == 1
     menu = texts.overflow_menu(catalog)
+    assert "✓ <b>Off</b>\n<i>Selected — large files won’t be delivered</i>" in menu
     # Broken Adapters are named by their own classes, not guessed from files.
-    assert "Broken — misconfigured" in menu
-    assert "Needs arguments — misconfigured" in menu
+    assert "<b>Broken</b>\n<i>Not configured</i>" in menu
+    assert "<b>Needs arguments</b>\n<i>Not configured</i>" in menu
 
 
 def test_a_selection_whose_module_disappeared_is_reported_missing(tmp_path: Path) -> None:
@@ -130,4 +138,30 @@ def test_a_selection_whose_module_disappeared_is_reported_missing(tmp_path: Path
 
     menu = texts.overflow_menu(catalog)
 
-    assert "Removed — missing" in menu
+    assert "⚠ <b>Removed</b>\n<i>Selected, but missing</i>" in menu
+
+
+def test_menu_matches_the_approved_html_layout_and_escapes_adapter_labels() -> None:
+    off = OverflowChoice(adapter_id="none", label="none", state=OverflowState.OFF)
+    share = OverflowChoice(adapter_id="share", label="Share <fast>", state=OverflowState.READY)
+    yandex = OverflowChoice(
+        adapter_id="yandex_disk",
+        label="Yandex Disk",
+        state=OverflowState.MISCONFIGURED,
+    )
+    catalog = cast(
+        OverflowCatalog,
+        SimpleNamespace(current=share, selectable=(off, share), choices=(share, yandex)),
+    )
+
+    assert texts.overflow_menu(catalog) == (
+        "📦 <b>Overflow delivery</b>\n"
+        "<i>Where files too large for Telegram are sent</i>\n\n"
+        "✓ <b>Share &lt;fast&gt;</b>\n"
+        "<i>Selected</i>\n\n"
+        "○ <b>Off</b>\n"
+        "<i>Large files won’t be delivered</i>\n\n"
+        "⚠ <b>Yandex Disk</b>\n"
+        "<i>Not configured</i>\n\n"
+        "Choose a destination:"
+    )

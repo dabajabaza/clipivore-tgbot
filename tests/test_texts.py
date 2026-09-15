@@ -1,4 +1,4 @@
-"""The bot's voice: English, plain text, and no placeholder left unfilled."""
+"""The bot's voice: English, safe source strings, and no unfilled placeholder."""
 
 import re
 
@@ -24,9 +24,9 @@ def test_the_bot_speaks_english() -> None:
     assert not russian
 
 
-def test_nothing_is_formatted_as_html_or_markdown() -> None:
-    # Replies quote uploader handles, yt-dlp messages and external locators;
-    # plain text is the only format none of them can break.
+def test_source_strings_do_not_hide_html_or_markdown() -> None:
+    # The two HTML builders add their markup in code where dynamic text can be
+    # escaped; the source strings themselves must stay safe to compose.
     marked_up = {name for name, value in _PUBLIC.items() if _MARKUP.search(value)}
     assert not marked_up
 
@@ -59,8 +59,6 @@ def test_every_placeholder_is_one_the_caller_actually_supplies() -> None:
         "OVERFLOW_MISCONFIGURED": {"max_mb", "adapter", "observed"},
         "OVERFLOW_STOPPED_AT": {"size"},
         "OVERFLOW_CLIP_SIZE": {"size"},
-        "OVERFLOW_MENU": {"current"},
-        "OVERFLOW_MENU_PROBLEMS": {"problems"},
         "OVERFLOW_SELECTED": {"adapter"},
         "TIMED_OUT": {"minutes"},
         "OWNER_AUTH_EXPIRED": {"provider", "path", "detail"},

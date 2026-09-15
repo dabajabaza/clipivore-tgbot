@@ -3,9 +3,11 @@
 English throughout, and plain text rather than HTML or Markdown: replies quote
 things the bot does not control — uploader handles, yt-dlp messages, external
 locators full of punctuation — and plain text is the only format none of them
-can break. The one exception is the delivery verdict, whose HTML lives in
-bot/captions.py with every foreign string escaped; this module stays plain.
+can break. The exceptions are the delivery verdict and the Owner-only Overflow
+Menu; every dynamic string in their HTML is escaped.
 """
+
+from html import escape
 
 from clipivore.services.overflow import (
     SAVED_SELECTION_ID,
@@ -82,14 +84,21 @@ OVERFLOW_MISCONFIGURED = (
 OVERFLOW_STOPPED_AT = "stopped at {size}"
 OVERFLOW_CLIP_SIZE = "the clip is {size}"
 
-OVERFLOW_MENU = "Overflow delivery\n\nCurrent: {current}"
-OVERFLOW_MENU_PROBLEMS = "Unavailable:\n{problems}"
+OVERFLOW_MENU_TITLE = "Overflow delivery"
+OVERFLOW_MENU_HINT = "Where files too large for Telegram are sent"
+OVERFLOW_MENU_PROMPT = "Choose a destination:"
+OVERFLOW_MENU_SELECTED = "Selected"
+OVERFLOW_MENU_AVAILABLE = "Available"
+OVERFLOW_MENU_OFF = "Large files won’t be delivered"
+OVERFLOW_MENU_MISSING = "Missing"
+OVERFLOW_MENU_MISCONFIGURED = "Not configured"
+OVERFLOW_MENU_SELECTED_OFF = "Selected — large files won’t be delivered"
+OVERFLOW_MENU_SELECTED_MISSING = "Selected, but missing"
+OVERFLOW_MENU_SELECTED_MISCONFIGURED = "Selected, but not configured"
 OVERFLOW_COMMAND_DESCRIPTION = "Overflow delivery"
-OVERFLOW_CURRENT_MARKER = "✓ "
+OVERFLOW_CURRENT_MARKER = " ✓"
 OVERFLOW_OFF_LABEL = "Off"
 OVERFLOW_SAVED_SELECTION = "Saved selection"
-OVERFLOW_STATE_MISSING = "missing"
-OVERFLOW_STATE_MISCONFIGURED = "misconfigured"
 OVERFLOW_NOT_SELECTABLE = "That Overflow Adapter is not available."
 OVERFLOW_SAVE_FAILED = "Couldn't save the Overflow delivery selection. See the bot's log."
 OVERFLOW_SELECTED = "Selected {adapter}."
@@ -163,18 +172,46 @@ def overflow_unavailable(overflow: OverflowChoice, *, max_mb: int, observed: str
 
 def overflow_menu(catalog: OverflowCatalog) -> str:
     current = catalog.current
-    current_text = overflow_label(current)
-    if current.state in {OverflowState.MISSING, OverflowState.MISCONFIGURED}:
-        current_text += f" — {overflow_state_label(current.state)}"
-    text = OVERFLOW_MENU.format(current=current_text)
-    problems = [
-        f"⚠ {choice.label} — {overflow_state_label(choice.state)}"
-        for choice in catalog.choices
-        if choice.state in {OverflowState.MISSING, OverflowState.MISCONFIGURED}
-    ]
-    if problems:
-        text += "\n\n" + OVERFLOW_MENU_PROBLEMS.format(problems="\n".join(problems))
-    return text
+    choices = (
+        current,
+        *(choice for choice in catalog.selectable if choice.adapter_id != current.adapter_id),
+        *(
+            choice
+            for choice in catalog.choices
+            if choice.adapter_id != current.adapter_id
+            and choice.state in {OverflowState.MISSING, OverflowState.MISCONFIGURED}
+        ),
+    )
+    rendered = "\n\n".join(
+        _overflow_menu_choice(choice, selected=choice.adapter_id == current.adapter_id)
+        for choice in choices
+    )
+    return (
+        f"📦 <b>{OVERFLOW_MENU_TITLE}</b>\n"
+        f"<i>{OVERFLOW_MENU_HINT}</i>\n\n"
+        f"{rendered}\n\n"
+        f"{OVERFLOW_MENU_PROMPT}"
+    )
+
+
+def _overflow_menu_choice(choice: OverflowChoice, *, selected: bool) -> str:
+    if selected and choice.state is OverflowState.MISSING:
+        icon, detail = "⚠", OVERFLOW_MENU_SELECTED_MISSING
+    elif selected and choice.state is OverflowState.MISCONFIGURED:
+        icon, detail = "⚠", OVERFLOW_MENU_SELECTED_MISCONFIGURED
+    elif selected and choice.state is OverflowState.OFF:
+        icon, detail = "✓", OVERFLOW_MENU_SELECTED_OFF
+    elif selected:
+        icon, detail = "✓", OVERFLOW_MENU_SELECTED
+    elif choice.state is OverflowState.OFF:
+        icon, detail = "○", OVERFLOW_MENU_OFF
+    elif choice.state is OverflowState.READY:
+        icon, detail = "○", OVERFLOW_MENU_AVAILABLE
+    elif choice.state is OverflowState.MISSING:
+        icon, detail = "⚠", OVERFLOW_MENU_MISSING
+    else:
+        icon, detail = "⚠", OVERFLOW_MENU_MISCONFIGURED
+    return f"{icon} <b>{escape(overflow_label(choice))}</b>\n<i>{detail}</i>"
 
 
 def overflow_label(overflow: OverflowChoice) -> str:
@@ -183,12 +220,6 @@ def overflow_label(overflow: OverflowChoice) -> str:
     if overflow.state is OverflowState.OFF:
         return OVERFLOW_OFF_LABEL
     return overflow.label
-
-
-def overflow_state_label(state: OverflowState) -> str:
-    if state is OverflowState.MISSING:
-        return OVERFLOW_STATE_MISSING
-    return OVERFLOW_STATE_MISCONFIGURED
 
 
 def human_size(size_bytes: int) -> str:
