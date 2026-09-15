@@ -393,14 +393,10 @@ class RequestWorker:
             await request.reporter.replace_with_upload()
             return
         blocks = [
-            # The locator and label are foreign text; under an HTML parse mode
-            # they must not be able to parse as markup.
-            html.escape(
-                texts.OVERFLOW_RESULT.format(
-                    size=texts.human_size(overflow.size_bytes),
-                    adapter=overflow.adapter_label,
-                    location=overflow.location,
-                )
+            texts.OVERFLOW_RESULT.format(
+                size=html.escape(texts.human_size(overflow.size_bytes)),
+                adapter=html.escape(overflow.adapter_label),
+                location=f"<code>{html.escape(overflow.location)}</code>",
             )
             for overflow in overflows
         ]

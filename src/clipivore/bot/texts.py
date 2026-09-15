@@ -59,7 +59,7 @@ SENT = "Sent."
 # The label bot/captions.py wraps into the link to the post itself.
 OPEN_IN = "Open in {provider}"
 
-OVERFLOW_RESULT = "Too big for Telegram ({size}). Delivered through {adapter}:\n{location}"
+OVERFLOW_RESULT = "Too big for Telegram ({size}). Delivered through {adapter}:\n\n{location}"
 
 NO_VIDEO = "That post has no video in it."
 POST_UNAVAILABLE = "Can't reach that post — it may be deleted, protected or suspended."
