@@ -25,7 +25,7 @@ def catalog() -> ProviderCatalog:
     A module-level catalog is constructed at collection time, before any
     fixture — which is exactly the environment leak the suite is guarded
     against, and it showed as "provider x is misconfigured" in the collection
-    log of anyone who had COOKIES_FILE set.
+    log of anyone who had a Provider cookie path set.
     """
     return ProviderCatalog(ProviderContext())
 

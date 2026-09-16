@@ -602,7 +602,7 @@ class TestOwnerAlerts:
     def _session(self, tmp_path: Path, body: str = "stale") -> tuple[CookieSession, Path]:
         export = tmp_path / "cookies.txt"
         export.write_text(body)
-        return CookieSession(export), export
+        return CookieSession(export, setting="TEST_COOKIES_FILE"), export
 
     def _provider(self, cookies: CookieSession) -> ProviderChoice:
         """The alert now dedupes per Provider, so it needs one to talk about."""
@@ -647,13 +647,13 @@ class TestOwnerAlerts:
             downloader=FakeDownloader(),
             provider_id="x",
             name="Twitter",
-            cookies=CookieSession(first_export),
+            cookies=CookieSession(first_export, setting="FIRST_COOKIES_FILE"),
         )
         second = make_provider_choice(
             downloader=FakeDownloader(),
             provider_id="other",
             name="Other",
-            cookies=CookieSession(second_export),
+            cookies=CookieSession(second_export, setting="SECOND_COOKIES_FILE"),
         )
         alerts = OwnerAlerts(harness.bot, owner_id=settings.owner_id)
 
@@ -684,6 +684,22 @@ class TestOwnerAlerts:
         sent = harness.session.calls_of(SendMessage)
         assert len(sent) == 1
         assert "COOKIES_FILE" in sent[0].text
+
+    async def test_an_unconfigured_provider_names_its_own_cookie_setting(
+        self, harness: BotHarness, settings: Settings
+    ) -> None:
+        provider = make_provider_choice(
+            downloader=FakeDownloader(),
+            provider_id="reddit",
+            name="Reddit",
+            cookies=CookieSession(None, setting="REDDIT_COOKIES_FILE"),
+        )
+        alerts = OwnerAlerts(harness.bot, owner_id=settings.owner_id)
+
+        await alerts.auth_expired(provider, "Account authentication is required")
+
+        [sent] = harness.session.calls_of(SendMessage)
+        assert "REDDIT_COOKIES_FILE" in sent.text
 
     async def test_the_owner_is_not_told_twice_about_the_same_dead_session(
         self, harness: BotHarness, settings: Settings, tmp_path: Path

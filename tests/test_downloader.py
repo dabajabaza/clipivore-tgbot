@@ -582,7 +582,7 @@ class TestCookiesAreACopy:
 
         export = tmp_path / "cookies.txt"
         export.write_text("netscape")
-        cookies = CookieSession(export)
+        cookies = CookieSession(export, setting="TEST_COOKIES_FILE")
 
         scratch = tmp_path / "req-1"
         options = module.YtDlpDownloader(TWITTER_PROFILE, cookies=cookies)._options(

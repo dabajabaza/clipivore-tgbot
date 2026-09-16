@@ -58,12 +58,19 @@ install -m 600 -o twitterdl /dev/null /usr/local/etc/twitter-dl.env
 
 # Twitter cookies: export cookies.txt from the browser, copy it to the server
 install -m 600 -o twitterdl cookies.txt /usr/local/etc/twitter-dl-cookies.txt
+
+# Optional Reddit cookies, from an account that can view restricted posts
+install -m 600 -o twitterdl cookies.txt /usr/local/etc/reddit-cookies.txt
 ```
 
 The minimum the env file must carry: `TELEGRAM_BOT_TOKEN`, `OWNER_ID`,
-`TELEGRAM_PROXY=http://127.0.0.1:1080`, and `COOKIES_FILE`. Overflow delivery
+`TELEGRAM_PROXY=http://127.0.0.1:1080`, and `TWITTER_COOKIES_FILE`. Add
+`REDDIT_COOKIES_FILE` when Reddit account access is needed. Overflow delivery
 is optional; without the Adapter settings below the bot remains fully
 functional for clips within Telegram's limit.
+
+When upgrading from the former setting name, rename `COOKIES_FILE` to
+`TWITTER_COOKIES_FILE` in the env file before deploying: the old name is ignored.
 
 ### Optional Overflow Adapters
 

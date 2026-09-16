@@ -219,7 +219,7 @@ class OwnerAlerts:
 
 def _cookies_path(cookies: CookieSession | None) -> str:
     source = cookies.source if cookies else None
-    return str(source) if source else "COOKIES_FILE"
+    return str(source) if source else (cookies.setting if cookies else "COOKIES_FILE")
 
 
 class RequestWorker:

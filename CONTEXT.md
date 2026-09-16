@@ -24,9 +24,9 @@ exactly one Provider. A Provider the bot cannot currently serve is announced by
 name rather than hidden, and never takes the others down with it.
 
 **Post link** — a URL naming a single post on a Provider. It arrives either
-direct (`x.com/<user>/status/<id>`, `bsky.app/profile/<handle>/post/<id>`, plus
-the historical `twitter.com` and `mobile.` spellings) or wrapped in that
-Provider's short link (`t.co/<slug>`,
+direct (`x.com/<user>/status/<id>`, `bsky.app/profile/<handle>/post/<id>`,
+`reddit.com/r/<community>/comments/<id>`, plus historical spellings) or wrapped
+in that Provider's short link (`t.co/<slug>` or `redd.it/<id>`,
 which says nothing about its target until it is followed).
 
 **Request** — one Post link accepted from one user. It holds one queue slot and
@@ -91,8 +91,8 @@ remain until the Owner removes them manually; there is no automatic retention.
 
 **Cookie session** — the Owner's session with one Provider, exported from a
 browser (`cookies.txt`). It is how the bot identifies itself there; a Provider
-without one reaches only public posts. Today only Twitter has one — Bluesky's public
-posts need none.
+without one reaches only public posts. Twitter and Reddit can each have one;
+Bluesky's public posts need none.
 
 **Auth expiry** — the state in which a Provider's Cookie session no longer
 authenticates. Treacherous because public posts keep downloading: from the

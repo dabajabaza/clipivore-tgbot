@@ -8,7 +8,7 @@ from clipivore.services.cookies import CookieSession
 def build(tmp_path: Path, body: str = "netscape cookies") -> tuple[CookieSession, Path]:
     export = tmp_path / "cookies.txt"
     export.write_text(body)
-    return CookieSession(export), export
+    return CookieSession(export, setting="TEST_COOKIES_FILE"), export
 
 
 def test_yt_dlp_is_handed_a_copy_never_the_owners_file(tmp_path: Path) -> None:
@@ -73,7 +73,7 @@ def test_replacing_the_export_changes_the_identity_and_the_copies(tmp_path: Path
 
 
 def test_no_cookie_file_configured_is_not_an_error(tmp_path: Path) -> None:
-    cookies = CookieSession(None)
+    cookies = CookieSession(None, setting="TEST_COOKIES_FILE")
 
     assert not cookies.configured
     assert cookies.stage_into(tmp_path / "req-1") is None
@@ -82,7 +82,7 @@ def test_no_cookie_file_configured_is_not_an_error(tmp_path: Path) -> None:
 
 def test_a_missing_export_downgrades_to_anonymous_rather_than_crashing(tmp_path: Path) -> None:
     # Public tweets still download; the owner sees a warning in the log.
-    cookies = CookieSession(tmp_path / "nope.txt")
+    cookies = CookieSession(tmp_path / "nope.txt", setting="TEST_COOKIES_FILE")
 
     assert cookies.configured
     assert cookies.stage_into(tmp_path / "req-1") is None
