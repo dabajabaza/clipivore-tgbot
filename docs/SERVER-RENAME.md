@@ -74,7 +74,7 @@ Then edit `/usr/local/etc/clipivore.env` — every path in it just moved, and th
 two rclone remotes are renamed in step 6:
 
 ```sh
-COOKIES_FILE=/usr/local/etc/clipivore-cookies.txt
+TWITTER_COOKIES_FILE=/usr/local/etc/clipivore-cookies.txt
 DOWNLOAD_DIR=/var/tmp/clipivore
 SHARE_RCLONE_CONFIG=/usr/local/etc/clipivore-rclone.conf
 SHARE_RCLONE_REMOTE=keenetic:KeeneticShared/clipivore
@@ -181,6 +181,6 @@ is renamed they are wrong, and a fresh checkout would point at directories that
 no longer exist:
 
 - `src/clipivore/config.py`: `download_dir` default → `/var/tmp/clipivore`.
-- `.env.example`: the `COOKIES_FILE`, `DOWNLOAD_DIR` and rclone lines.
+- `.env.example`: the `TWITTER_COOKIES_FILE`, `DOWNLOAD_DIR` and rclone lines.
 - `README.md`, `docs/DEPLOY.md`, `docs/ARCHITECTURE.md`: drop the "these names
   are older than the bot" notes, and this document with them.

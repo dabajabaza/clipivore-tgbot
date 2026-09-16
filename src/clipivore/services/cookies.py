@@ -1,4 +1,4 @@
-"""The owner's Twitter session, kept where yt-dlp cannot damage it.
+"""The owner's Provider sessions, kept where yt-dlp cannot damage them.
 
 yt-dlp rewrites whatever cookie file it is handed — ``YoutubeDL.__exit__`` calls
 ``save_cookies()``, which rewrites the file after *every* run, successful or
@@ -11,7 +11,7 @@ owner's export directly costs two things:
 
 That second one matters more than it looks: the expiry alert dedupes on exactly
 that marker (see docs/ARCHITECTURE.md D3), and a marker the bot keeps touching
-would make the alert fire on every private tweet instead of once per export.
+would make the alert fire on every private post instead of once per export.
 
 So the export is treated as read-only input, and each request gets its own
 throwaway copy inside its own scratch directory. Per-request rather than one
@@ -32,8 +32,9 @@ _COPY_NAME = "cookies.txt"
 class CookieSession:
     """Read-only view of the owner's cookie export, plus per-request copies."""
 
-    def __init__(self, source: Path | None) -> None:
+    def __init__(self, source: Path | None, *, setting: str) -> None:
         self._source = source
+        self._setting = setting
 
     @property
     def configured(self) -> bool:
@@ -43,6 +44,11 @@ class CookieSession:
     def source(self) -> Path | None:
         """The owner's export — what an alert should name, and what they replace."""
         return self._source
+
+    @property
+    def setting(self) -> str:
+        """The environment setting to name when no export path is available."""
+        return self._setting
 
     def version(self) -> tuple[float, int] | None:
         """Identity of the current export: changes only when the owner replaces it.
@@ -63,7 +69,7 @@ class CookieSession:
         """Copy the export into one request's scratch directory for yt-dlp to chew on.
 
         Returns `None` — meaning "download anonymously" — when no export is
-        configured or it cannot be read. Public tweets still work; anything
+        configured or it cannot be read. Public posts still work; anything
         private will fail and be reported as expired auth, which is the truth.
         """
         if self._source is None:

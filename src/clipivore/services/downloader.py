@@ -107,8 +107,13 @@ class EngineProfile:
     unavailable_markers: tuple[str, ...] = ()
     # Strips whatever link furniture the platform appends to a post's text.
     clean_description: Callable[[str], str] = field(default=_unchanged)
+    # Metadata fields to combine into the delivery caption, in display order.
+    description_fields: tuple[str, ...] = ("description",)
     # The author's profile URL, when the extractor did not supply one.
     profile_url: Callable[[str], str] = field(default=_no_profile)
+    # Some extractors expose a username only as ``uploader``. It is used as a
+    # profile handle only when the Provider explicitly says that spelling is stable.
+    profile_from_uploader: bool = False
     # The post id read straight off the link, for platforms whose extractor
     # reports the id of something else. A quote post is the case that forces
     # this: its metadata describes the post being quoted, so without this the
@@ -415,7 +420,8 @@ def _clip_from_entry(entry: dict[str, Any], url: str, profile: EngineProfile) ->
 
 def _description(entry: dict[str, Any], profile: EngineProfile) -> str:
     """The post's text, cleaned of the platform's own link furniture."""
-    raw = str(entry.get("description") or "")
+    parts = [str(entry[field]).strip() for field in profile.description_fields if entry.get(field)]
+    raw = "\n\n".join(dict.fromkeys(parts))
     return profile.clean_description(raw).strip()
 
 
@@ -423,7 +429,9 @@ def _uploader_url(entry: dict[str, Any], profile: EngineProfile) -> str:
     url = entry.get("uploader_url")
     if url:
         return str(url)
-    handle = entry.get("uploader_id")
+    handle = entry.get("uploader_id") or (
+        entry.get("uploader") if profile.profile_from_uploader else None
+    )
     return profile.profile_url(str(handle)) if handle else ""
 
 

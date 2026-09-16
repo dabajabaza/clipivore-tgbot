@@ -62,10 +62,8 @@ _TRAILING_TCO = re.compile(r"(?:\s*https?://t\.co/[A-Za-z0-9]+)+\s*$")
 class TwitterSettings(BaseSettings):
     """Twitter's own configuration.
 
-    ``COOKIES_FILE`` keeps its bare, unprefixed name on purpose: it is already
-    set in the deployed env file, which is hand-managed on a host this
-    repository cannot reach. A prefixed spelling would have been tidier and
-    would have silently turned off authenticated downloads on the next deploy.
+    ``TWITTER_COOKIES_FILE`` is separate from the Reddit session, so replacing
+    either browser export cannot affect the other Provider.
     """
 
     model_config = SettingsConfigDict(
@@ -75,16 +73,16 @@ class TwitterSettings(BaseSettings):
         populate_by_name=True,
     )
 
-    cookies_file: Path | None = Field(
+    twitter_cookies_file: Path | None = Field(
         default=None,
-        alias="COOKIES_FILE",
+        alias="TWITTER_COOKIES_FILE",
         description=(
             "Netscape-format cookies.txt of the owner's Twitter session. Without it only public "
             "posts download: no NSFW, no age-gated, no protected accounts"
         ),
     )
 
-    @field_validator("cookies_file", mode="before")
+    @field_validator("twitter_cookies_file", mode="before")
     @classmethod
     def _empty_path_means_unset(cls, value: object) -> object:
         """An empty value is "not configured", not the current directory.
@@ -148,15 +146,15 @@ class TwitterProvider(Provider):
 
     def __init__(self, context: ProviderContext) -> None:
         settings = TwitterSettings()
-        cookies_file = settings.cookies_file
+        cookies_file = settings.twitter_cookies_file
         if cookies_file is not None and cookies_file.is_dir():
             # yt-dlp would try to read cookies out of a directory on every
             # download. Raising here makes Twitter misconfigured rather than killing
             # the bot: it is named in /help and in the refusal, and any other
             # Provider keeps working. If Twitter is the only one installed, though,
             # "every Provider is broken" is still fatal at startup — see D18.
-            raise ValueError(f"COOKIES_FILE must be a file, got directory {cookies_file}")
-        self.cookies = CookieSession(cookies_file)
+            raise ValueError(f"TWITTER_COOKIES_FILE must be a file, got directory {cookies_file}")
+        self.cookies = CookieSession(cookies_file, setting="TWITTER_COOKIES_FILE")
         self._proxy = context.proxy
         self._downloader = YtDlpDownloader(PROFILE, cookies=self.cookies, proxy=context.proxy)
 

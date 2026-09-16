@@ -1,7 +1,7 @@
 # clipivore-tgbot
 
 A personal Telegram bot: send it a link to a post and get the video from it, at
-the best quality available. Twitter and Bluesky are built in; another Provider is one
+the best quality available. Twitter, Bluesky and Reddit are built in; another Provider is one
 file more. Downloads run through `yt-dlp` under the
 owner's own cookies, so NSFW, age-gated and protected accounts the owner
 follows are all reachable.
@@ -13,7 +13,8 @@ real account, one uplink.
 
 ## What it does
 
-- A link in a message (`x.com`, `twitter.com`, `t.co`, `bsky.app`) becomes a
+- A link in a message (`x.com`, `twitter.com`, `t.co`, `bsky.app`, `reddit.com`,
+  `redd.it`) becomes a
   video in the chat. There is no command to remember — the link is the command.
 - Several links in one message, and several clips in one post, are all handled
   in turn.
@@ -175,24 +176,27 @@ chain is only ever exercised by a person. With a test token:
 5. `/help` → every discovered Provider is listed with its link shapes.
 6. A Bluesky post with a video → the clip arrives, footer reads "Open in
    Bluesky"; it works with no cookies and no Bluesky settings at all.
-7. Six links at once → the sixth is refused with "Queue is full".
-8. `MAX_TG_VIDEO_MB=1` with Overflow delivery off → an explicit size-limit
+7. A Reddit post with a native video and a `redd.it` or Reddit share link → the
+   clip arrives, captioned with the post title and text. A restricted post works
+   with `REDDIT_COOKIES_FILE` exported from an account that can view it.
+8. Six links at once → the sixth is refused with "Queue is full".
+9. `MAX_TG_VIDEO_MB=1` with Overflow delivery off → an explicit size-limit
    verdict naming how far the download got, and no complete oversized download.
-9. Enable the Share Adapter → the file lands there and the chat gets the path
+10. Enable the Share Adapter → the file lands there and the chat gets the path
    plus the post's text and footer; enable Yandex Disk → the chat gets a
    working public link.
-10. One good link and one dead link in the same message → the good one arrives,
+11. One good link and one dead link in the same message → the good one arrives,
    and the message stays.
-11. Remove or break the selected Adapter → small clips still arrive, and a large
+12. Remove or break the selected Adapter → small clips still arrive, and a large
    one names the missing or misconfigured Overflow destination.
-12. Point `COOKIES_FILE` at a directory → Twitter is reported misconfigured in the
+13. Point `TWITTER_COOKIES_FILE` at a directory → Twitter is reported misconfigured in the
    log, the bot starts anyway, `/help` lists Twitter as unavailable, and a Twitter link is
-   refused by name while Bluesky keeps working. Remove the Bluesky module too
-   and the bot refuses to start at all: with no Provider left there is nothing
+   refused by name while the other Providers keep working. Remove the Bluesky and Reddit
+   modules too and the bot refuses to start at all: with no Provider left there is nothing
    it could do, and idling healthily would hide that.
-13. A valid but stale `COOKIES_FILE` plus an NSFW post → one alert to the owner
+14. A valid but stale `TWITTER_COOKIES_FILE` plus an NSFW post → one alert to the owner
    naming the Provider, a polite refusal to whoever asked.
-14. Proxy switched off for a minute → "Can't reach Twitter right now", and the bot
+15. Proxy switched off for a minute → "Can't reach Twitter right now", and the bot
    neither hangs nor dies.
 
 ## Operations

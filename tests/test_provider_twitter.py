@@ -322,13 +322,23 @@ class TestShortLinkResolution:
 
 
 class TestTwittersOwnConfiguration:
+    def test_the_old_cookie_name_is_not_a_twitter_setting(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("COOKIES_FILE", str(tmp_path))
+
+        provider = TwitterProvider(ProviderContext())
+
+        assert provider.cookies is not None
+        assert provider.cookies.source is None
+
     def test_a_cookies_path_that_is_a_directory_disables_twitter_rather_than_the_bot(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         # yt-dlp would try to read cookies out of a directory on every single
         # download. Before Providers this refused to start at all; now it is Twitter
         # that is unavailable, named as such, while anything else keeps working.
-        monkeypatch.setenv("COOKIES_FILE", str(tmp_path))
+        monkeypatch.setenv("TWITTER_COOKIES_FILE", str(tmp_path))
         catalog = ProviderCatalog(ProviderContext())
 
         twitter = catalog.get("twitter")
@@ -343,7 +353,7 @@ class TestTwittersOwnConfiguration:
     ) -> None:
         # `.env.example` invites `NAME=` for optional settings, and an empty
         # string becomes Path('.') — a directory, i.e. the case above.
-        monkeypatch.setenv("COOKIES_FILE", "   ")
+        monkeypatch.setenv("TWITTER_COOKIES_FILE", "   ")
         provider = TwitterProvider(ProviderContext())
 
         assert provider.cookies is not None

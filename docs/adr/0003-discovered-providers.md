@@ -24,10 +24,9 @@ Three things differ from the Adapters, each for a reason:
 settings are wholly its own, so zero-arg construction costs nothing. A Provider
 needs the single outbound hop this deployment uses, which the bot has already
 parsed (ARCHITECTURE.md D6) and which no Provider should re-derive. Everything
-else a Provider needs it still reads itself, from its own environment — Twitter keeps
-the bare, unprefixed `COOKIES_FILE` name because that line already exists in the
-hand-managed env file on the server, and a tidier spelling would have silently
-turned authenticated downloads off on the next deploy.
+else a Provider needs it still reads itself, from its own environment — Twitter
+and Reddit keep independent, explicitly named cookie settings so replacing one
+browser export cannot affect the other.
 
 **Nothing is selected and nothing is persisted.** The Owner picks one Adapter for
 the whole bot; there is no equivalent choice here, because the *link* picks the

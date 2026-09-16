@@ -29,15 +29,15 @@ _SHARED_ROUTERS = (start.router, overflow.router, links.router, fallback.router)
 # settings inside the catalog, where a test cannot reach in — so the ambient
 # values have to go before it is built. A new Provider with settings of its own
 # adds them here; forget to, and its tests quietly test the developer's machine.
-_PROVIDER_ENV_VARS = ("COOKIES_FILE",)
+_PROVIDER_ENV_VARS = ("TWITTER_COOKIES_FILE", "REDDIT_COOKIES_FILE")
 
 
 @pytest.fixture(autouse=True)
 def hermetic_provider_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Keep the developer's own environment out of every Provider.
 
-    Without this, `COOKIES_FILE=/tmp` in a shell — or a production `.env` copied
-    into the working tree — makes Twitter misconfigured and fails tests that have
+    Without this, a cookie path from a shell — or a production `.env` copied
+    into the working tree — makes a Provider misconfigured and fails tests that have
     nothing to do with cookies. Anyone running the suite on the deploy host hits
     it immediately.
     """

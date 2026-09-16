@@ -88,9 +88,9 @@ class TestWhatCountsAsAProvider:
         assert empty.choices == []
         assert empty.extract("https://x.com/a/status/1") == []
 
-    def test_the_real_package_holds_at_least_twitter(self) -> None:
+    def test_the_real_package_holds_the_built_in_providers(self) -> None:
         names = {choice.name for choice in ProviderCatalog().ready}
-        assert "Twitter" in names
+        assert {"Twitter", "Bluesky", "Reddit"} <= names
 
 
 class TestBrokenProvidersAreVisibleNotFatal:
