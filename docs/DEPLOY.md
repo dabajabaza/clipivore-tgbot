@@ -179,7 +179,7 @@ jail's dataset is snapshotted by sanoid anyway.
 
 ## What the GitHub repository must look like
 
-All of it is applied by `automation/scripts/new-bot-repo.sh`, which copies the
+All of it is applied by `repo-tools/new-bot-repo.sh`, which copies the
 settings and rulesets from an already-configured bot repository rather than
 having them clicked in again. Nothing below needs doing by hand.
 
