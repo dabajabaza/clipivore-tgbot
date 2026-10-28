@@ -19,6 +19,8 @@ from time import monotonic
 
 from aiogram import Bot
 
+from clipivore.bot.status_ledger import StatusLedger, Verdict
+
 logger = logging.getLogger(__name__)
 
 _MIN_EDIT_INTERVAL_S = 5.0
@@ -35,6 +37,7 @@ class ProgressReporter:
         chat_id: int,
         message_id: int,
         min_interval: float = _MIN_EDIT_INTERVAL_S,
+        ledger: StatusLedger | None = None,
     ) -> None:
         self._bot = bot
         self._chat_id = chat_id
@@ -49,6 +52,11 @@ class ProgressReporter:
         # can be in flight against the same message_id simultaneously, and the
         # order they land in is then Telegram's to decide, not ours.
         self._edit_lock = asyncio.Lock()
+        # Listed until Telegram accepts the last word, so a restart that cuts
+        # the request short can still say so (see bot/status_ledger.py).
+        self._ledger = ledger
+        if ledger is not None:
+            ledger.opened(chat_id, message_id)
 
     @property
     def closed(self) -> bool:
@@ -78,20 +86,36 @@ class ProgressReporter:
         if self._closed:
             return
         await self.close()
-        await self._edit(text, parse_mode=parse_mode)
+        self._concluding(Verdict(text, parse_mode))
+        if await self._edit(text, parse_mode=parse_mode):
+            self._settled()
 
     async def replace_with_upload(self) -> None:
         """Drop the status message, because the video itself now stands in its place."""
         if self._closed:
             return
         await self.close()
+        # The clips are already in the chat, so if this delete is lost, "Sent."
+        # is the truth to replay — not "Interrupted".
+        self._concluding(Verdict(_SENT_FALLBACK))
         try:
             await self._bot.delete_message(chat_id=self._chat_id, message_id=self._message_id)
         except Exception as exc:
             # Deletion is cosmetic; a bot may not delete messages older than 48
             # hours, and a slow enough download can reach that.
             logger.debug("could not delete status message: %s", exc)
-            await self._edit(_SENT_FALLBACK)
+            if await self._edit(_SENT_FALLBACK):
+                self._settled()
+        else:
+            self._settled()
+
+    def _concluding(self, verdict: Verdict) -> None:
+        if self._ledger is not None:
+            self._ledger.concluding(self._chat_id, self._message_id, verdict)
+
+    def _settled(self) -> None:
+        if self._ledger is not None:
+            self._ledger.closed(self._chat_id, self._message_id)
 
     async def close(self) -> None:
         """Stop updating this message, for good.
@@ -127,12 +151,13 @@ class ProgressReporter:
             if text is not None and not self._closed:
                 await self._edit(text)
 
-    async def _edit(self, text: str, *, parse_mode: str | None = None) -> None:
+    async def _edit(self, text: str, *, parse_mode: str | None = None) -> bool:
+        """Show ``text``; True when it is on screen, whether now or already."""
         if text == self._shown:
-            return
+            return True
         async with self._edit_lock:
             if text == self._shown:
-                return
+                return True
             try:
                 await self._bot.edit_message_text(
                     chat_id=self._chat_id,
@@ -147,7 +172,9 @@ class ProgressReporter:
                 # an HTML error page instead of JSON. Letting that escape would
                 # kill the queue consumer over a transient 502.
                 logger.warning("status edit failed: %s: %s", type(exc).__name__, exc)
+                return False
             else:
                 self._shown = text
+                return True
             finally:
                 self._last_edit = monotonic()

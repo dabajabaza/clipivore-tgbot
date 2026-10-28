@@ -542,3 +542,32 @@ quote post specifically.
 
 **Revisit when** either fix above is worth its own change — the body-reading one
 also removes the 5xx guesswork the engine currently does with reason phrases.
+
+---
+
+## D20. A request cut short by a restart is told so by the next process
+
+**Context.** The queue lives in memory. When the proxy went down mid-download
+(2026-10-28), yt-dlp failed, the edit carrying the failure failed for the same
+reason, and the watchdog killed the process seconds later. The new process knew
+nothing about the request, so its status message stayed on "Downloading… 89%"
+for good. No in-process retry can fix this: the process does not live long
+enough to see the tunnel come back.
+
+**Decision.** `bot/status_ledger.py` keeps a small JSON file next to the
+Overflow selection (`.open-statuses.json` in `DOWNLOAD_DIR`) holding the
+`(chat_id, message_id)` of every status message that has not been given its
+last word. `ProgressReporter` lists itself when created and crosses itself out
+only when Telegram accepts its final edit or the delete. At startup, once
+Telegram answers and before polling, every leftover entry is edited to
+"Interrupted… send the link again". The last word is recorded *before* it is
+sent, because Telegram may apply an edit whose response is lost, or the process
+may die before crossing it out; such an entry gets its recorded verdict
+replayed instead, so an Overflow locator already on screen is never erased.
+Entries Telegram refuses for good (message
+gone) are dropped; transient failures keep them for the next start.
+
+**Consequences.** Every kind of death is covered, `kill -9` included, and the
+same mechanism catches a verdict lost to a short blip the process survived: it
+is corrected at the next restart. The requests themselves are not resumed; the
+source message survives a failed request (D17), so sending it again is one tap.

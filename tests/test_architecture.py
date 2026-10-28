@@ -10,6 +10,7 @@ from pathlib import Path
 import clipivore
 from clipivore.__main__ import build_dispatcher
 from clipivore.bot.handlers import fallback, links, overflow, start
+from clipivore.bot.status_ledger import StatusLedger
 from clipivore.runtime.worker import RequestQueue
 from clipivore.services.overflow import OverflowCatalog
 from clipivore.services.providers import ProviderCatalog
@@ -90,7 +91,13 @@ def test_the_catch_all_router_is_registered_last(tmp_path: Path) -> None:
     # dead code — and the failure would be silent.
     settings = build_settings(tmp_path)
     catalog = OverflowCatalog("tests.helpers.no_adapters", state_file=settings.overflow_state_file)
-    dp = build_dispatcher(settings, RequestQueue(settings.queue_limit), catalog, ProviderCatalog())
+    dp = build_dispatcher(
+        settings,
+        RequestQueue(settings.queue_limit),
+        catalog,
+        ProviderCatalog(),
+        StatusLedger(settings.status_ledger_file),
+    )
     try:
         assert dp.sub_routers[-1] is fallback.router
     finally:

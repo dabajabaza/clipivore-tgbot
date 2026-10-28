@@ -24,6 +24,7 @@ from aiogram.types import BotCommand, BotCommandScopeChat, ErrorEvent
 from clipivore.bot import texts
 from clipivore.bot.handlers import fallback, links, overflow, start
 from clipivore.bot.middlewares import AuthMiddleware, PrivateChatOnlyMiddleware
+from clipivore.bot.status_ledger import StatusLedger, report_interrupted
 from clipivore.bot.storage import NoStorage
 from clipivore.config import Settings
 from clipivore.runtime.watchdog import run_watchdog, sd_notify
@@ -71,6 +72,7 @@ def build_dispatcher(
     queue: RequestQueue,
     overflow_catalog: OverflowCatalog,
     provider_catalog: ProviderCatalog,
+    status_ledger: StatusLedger,
 ) -> Dispatcher:
     """Wire the dispatcher in the one order that matters.
 
@@ -90,6 +92,7 @@ def build_dispatcher(
     dp["queue"] = queue
     dp["overflow_catalog"] = overflow_catalog
     dp["provider_catalog"] = provider_catalog
+    dp["status_ledger"] = status_ledger
 
     # Both gates are outer middlewares on `update`, before any filter runs: a
     # stranger's message must not even be pattern-matched, let alone answered.
@@ -224,10 +227,14 @@ async def _run_bot(settings: Settings) -> None:
         alerts=OwnerAlerts(bot, owner_id=settings.owner_id),
         settings=settings,
     )
-    dp = build_dispatcher(settings, queue, overflow_catalog, provider_catalog)
+    status_ledger = StatusLedger(settings.status_ledger_file)
+    dp = build_dispatcher(settings, queue, overflow_catalog, provider_catalog, status_ledger)
 
     me = await _establish_connection(bot)
     await _set_commands(bot, owner_id=settings.owner_id)
+    # Before polling, so the ledger still holds only what the previous process
+    # left behind.
+    await report_interrupted(bot, status_ledger)
     logger.info(
         "bot @%s started (long polling), %d user(s) allowed",
         me.username,
