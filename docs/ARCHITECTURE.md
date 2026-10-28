@@ -560,7 +560,11 @@ Overflow selection (`.open-statuses.json` in `DOWNLOAD_DIR`) holding the
 last word. `ProgressReporter` lists itself when created and crosses itself out
 only when Telegram accepts its final edit or the delete. At startup, once
 Telegram answers and before polling, every leftover entry is edited to
-"Interrupted… send the link again". Entries Telegram refuses for good (message
+"Interrupted… send the link again". The last word is recorded *before* it is
+sent, because Telegram may apply an edit whose response is lost, or the process
+may die before crossing it out; such an entry gets its recorded verdict
+replayed instead, so an Overflow locator already on screen is never erased.
+Entries Telegram refuses for good (message
 gone) are dropped; transient failures keep them for the next start.
 
 **Consequences.** Every kind of death is covered, `kill -9` included, and the

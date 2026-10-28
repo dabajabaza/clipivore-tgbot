@@ -7,7 +7,7 @@ from aiogram.methods import EditMessageText
 
 from clipivore.bot import texts
 from clipivore.bot.progress import ProgressReporter
-from clipivore.bot.status_ledger import StatusLedger, report_interrupted
+from clipivore.bot.status_ledger import StatusLedger, Verdict, report_interrupted
 from tests.helpers.bot_harness import BotHarness
 
 
@@ -26,7 +26,7 @@ async def test_an_unfinished_status_survives_a_restart(harness: BotHarness, tmp_
 
     await reporter.set("Downloading… 89%")
 
-    assert restarted(path).pending == [(1, 777)]
+    assert [entry[:2] for entry in restarted(path).pending] == [(1, 777)]
 
 
 async def test_a_delivered_verdict_crosses_the_status_out(
@@ -62,7 +62,7 @@ async def test_a_verdict_telegram_never_accepted_stays_listed(
 
     await reporter.finish("Download failed.")
 
-    assert restarted(path).pending == [(1, 777)]
+    assert [entry[:2] for entry in restarted(path).pending] == [(1, 777)]
 
 
 async def test_startup_tells_an_abandoned_request_it_is_over(
@@ -106,7 +106,7 @@ async def test_a_transient_failure_keeps_the_status_for_the_next_start(
 
     await report_interrupted(harness.bot, restarted(path))
 
-    assert restarted(path).pending == [(1, 777)]
+    assert [entry[:2] for entry in restarted(path).pending] == [(1, 777)]
 
 
 def test_a_corrupt_ledger_starts_empty_instead_of_failing(tmp_path: Path) -> None:
@@ -121,7 +121,7 @@ def test_an_unwritable_ledger_does_not_raise(tmp_path: Path) -> None:
 
     ledger.opened(1, 777)
 
-    assert ledger.pending == [(1, 777)]
+    assert [entry[:2] for entry in ledger.pending] == [(1, 777)]
 
 
 async def test_a_queued_link_is_listed_until_it_finishes(harness: BotHarness) -> None:
@@ -134,3 +134,36 @@ async def test_a_queued_link_is_listed_until_it_finishes(harness: BotHarness) ->
     await request.reporter.finish("Download failed.")
 
     assert ledger.pending == []
+
+
+async def test_a_verdict_that_may_have_landed_is_replayed_not_overwritten(
+    harness: BotHarness, tmp_path: Path
+) -> None:
+    # Telegram may apply an edit whose response is lost. Covering it with
+    # "Interrupted" would erase an Overflow locator the user cannot get back.
+    path = tmp_path / "ledger.json"
+    reporter = build_reporter(harness, StatusLedger(path))
+    harness.session.fail_on["EditMessageText"] = TelegramNetworkError(
+        method=EditMessageText(chat_id=1, message_id=777, text="x"), message="response lost"
+    )
+    await reporter.finish("Delivered: <code>disk/clip.mp4</code>", parse_mode="HTML")
+    del harness.session.fail_on["EditMessageText"]
+
+    await report_interrupted(harness.bot, restarted(path))
+
+    edit = harness.session.calls_of(EditMessageText)[-1]
+    assert (edit.text, edit.parse_mode) == ("Delivered: <code>disk/clip.mp4</code>", "HTML")
+    assert restarted(path).pending == []
+
+
+async def test_a_lost_delete_after_upload_is_replayed_as_sent(
+    harness: BotHarness, tmp_path: Path
+) -> None:
+    path = tmp_path / "ledger.json"
+    ledger = StatusLedger(path)
+    build_reporter(harness, ledger)
+    ledger.concluding(1, 777, Verdict(texts.SENT))
+
+    await report_interrupted(harness.bot, restarted(path))
+
+    assert harness.session.calls_of(EditMessageText)[-1].text == texts.SENT

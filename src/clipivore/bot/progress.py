@@ -19,7 +19,7 @@ from time import monotonic
 
 from aiogram import Bot
 
-from clipivore.bot.status_ledger import StatusLedger
+from clipivore.bot.status_ledger import StatusLedger, Verdict
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +86,7 @@ class ProgressReporter:
         if self._closed:
             return
         await self.close()
+        self._concluding(Verdict(text, parse_mode))
         if await self._edit(text, parse_mode=parse_mode):
             self._settled()
 
@@ -94,6 +95,9 @@ class ProgressReporter:
         if self._closed:
             return
         await self.close()
+        # The clips are already in the chat, so if this delete is lost, "Sent."
+        # is the truth to replay — not "Interrupted".
+        self._concluding(Verdict(_SENT_FALLBACK))
         try:
             await self._bot.delete_message(chat_id=self._chat_id, message_id=self._message_id)
         except Exception as exc:
@@ -104,6 +108,10 @@ class ProgressReporter:
                 self._settled()
         else:
             self._settled()
+
+    def _concluding(self, verdict: Verdict) -> None:
+        if self._ledger is not None:
+            self._ledger.concluding(self._chat_id, self._message_id, verdict)
 
     def _settled(self) -> None:
         if self._ledger is not None:
