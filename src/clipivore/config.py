@@ -106,6 +106,11 @@ class Settings(BaseSettings):
         """The Owner's persisted selection, next to the writable scratch directories."""
         return self.download_dir / ".overflow-destination"
 
+    @property
+    def status_ledger_file(self) -> Path:
+        """Status messages awaiting their last word; survives a restart by design."""
+        return self.download_dir / ".open-statuses.json"
+
     @model_validator(mode="after")
     def _fail_fast_on_derived_values(self) -> "Settings":
         """Parse and range-check core settings that cannot be degraded safely.

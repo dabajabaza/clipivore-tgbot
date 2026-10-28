@@ -12,6 +12,7 @@ from aiogram import Bot
 
 from clipivore.__main__ import build_dispatcher
 from clipivore.bot.handlers import fallback, links, overflow, start
+from clipivore.bot.status_ledger import StatusLedger
 from clipivore.config import Settings
 from clipivore.runtime.worker import RequestQueue
 from clipivore.services.overflow import OverflowCatalog
@@ -67,7 +68,13 @@ async def harness(settings: Settings) -> AsyncIterator[BotHarness]:
     # The real providers package: handler tests need Twitter's actual link patterns,
     # and nothing here ever downloads.
     provider_catalog = ProviderCatalog()
-    dp = build_dispatcher(settings, queue, overflow_catalog, provider_catalog)
+    dp = build_dispatcher(
+        settings,
+        queue,
+        overflow_catalog,
+        provider_catalog,
+        StatusLedger(settings.status_ledger_file),
+    )
     await dp.emit_startup()
     try:
         yield BotHarness(

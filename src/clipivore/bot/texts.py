@@ -67,6 +67,7 @@ NETWORK_UNAVAILABLE = (
     "Can't reach {provider} right now (network or proxy is down). Try again later."
 )
 DOWNLOAD_FAILED = "Download failed. The details are in the bot's log."
+INTERRUPTED = "Interrupted: the bot restarted before this finished. Send the link again."
 OVERFLOW_FAILED = "Downloaded it, but {adapter} couldn't complete Overflow delivery."
 OVERFLOW_DISABLED = (
     "This clip is larger than Telegram's {max_mb} MB limit{observed}. Overflow delivery is off."

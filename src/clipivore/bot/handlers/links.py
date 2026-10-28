@@ -11,6 +11,7 @@ from aiogram.types import Message
 
 from clipivore.bot import texts
 from clipivore.bot.progress import ProgressReporter
+from clipivore.bot.status_ledger import StatusLedger
 from clipivore.config import Settings
 from clipivore.runtime.worker import Request, RequestQueue, SourceMessage
 from clipivore.services.overflow import OverflowCatalog
@@ -58,6 +59,7 @@ async def enqueue_links(
     queue: RequestQueue,
     settings: Settings,
     overflow_catalog: OverflowCatalog,
+    status_ledger: StatusLedger,
 ) -> None:
     user = message.from_user
     if user is None:
@@ -80,7 +82,9 @@ async def enqueue_links(
             await message.answer(texts.PROVIDER_MISCONFIGURED.format(provider=link.choice.name))
             continue
         status = await message.answer(texts.QUEUED)
-        reporter = ProgressReporter(bot, chat_id=status.chat.id, message_id=status.message_id)
+        reporter = ProgressReporter(
+            bot, chat_id=status.chat.id, message_id=status.message_id, ledger=status_ledger
+        )
         request = Request(
             url=link.url,
             chat_id=message.chat.id,
