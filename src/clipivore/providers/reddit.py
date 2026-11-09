@@ -80,9 +80,10 @@ class RedditProvider(Provider):
         cookies_file = RedditSettings().reddit_cookies_file
         if cookies_file is not None and cookies_file.is_dir():
             raise ValueError(f"REDDIT_COOKIES_FILE must be a file, got directory {cookies_file}")
-        self.cookies = CookieSession(cookies_file, setting="REDDIT_COOKIES_FILE")
+        self._cookies = CookieSession(cookies_file, setting="REDDIT_COOKIES_FILE")
+        self.cookies = self._cookies
         self._proxy = context.proxy
-        self._downloader = YtDlpDownloader(PROFILE, cookies=self.cookies, proxy=context.proxy)
+        self._downloader = YtDlpDownloader(PROFILE, cookies=self._cookies, proxy=context.proxy)
 
     @property
     def downloader(self) -> Downloader:
@@ -97,6 +98,9 @@ class RedditProvider(Provider):
             is_target=lambda candidate: bool(_POST_LINK.match(candidate)),
             find_targets=_posts_in,
             proxy=self._proxy,
+            # Without the session Reddit answers a share link from the server's
+            # address with "blocked by network security" (403).
+            cookies=self._cookies.jar(),
             outside_message=f"{url} leads outside Reddit",
         )
 

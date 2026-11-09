@@ -22,6 +22,7 @@ file, lands in the middle of the next request reading it.
 
 import logging
 import shutil
+from http.cookiejar import LoadError, MozillaCookieJar
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -87,3 +88,27 @@ class CookieSession:
             logger.warning("could not stage cookies from %s: %s", self._source, exc)
             return None
         return copy
+
+    def jar(self) -> MozillaCookieJar | None:
+        """The export loaded into memory, for requests the bot makes itself.
+
+        Reading never writes the file back, so this needs no copy. `None` — go
+        anonymous — when nothing is configured or the export cannot be read.
+        """
+        if self._source is None:
+            return None
+        jar = MozillaCookieJar()
+        try:
+            jar.load(str(self._source), ignore_discard=True, ignore_expires=True)
+        except (OSError, LoadError) as exc:
+            logger.warning("could not load cookies from %s: %s", self._source, exc)
+            return None
+        # Browser exports write a session cookie's expiry as 0, which the
+        # stdlib reads as 1970 and would drop — yet those are the cookies that
+        # carry the session. Only a real past expiry means expired.
+        for cookie in jar:
+            if cookie.expires == 0:
+                cookie.expires = None
+                cookie.discard = True
+        jar.clear_expired_cookies()
+        return jar

@@ -87,3 +87,44 @@ def test_a_missing_export_downgrades_to_anonymous_rather_than_crashing(tmp_path:
     assert cookies.configured
     assert cookies.stage_into(tmp_path / "req-1") is None
     assert cookies.version() is None
+
+
+_EXPORT = (
+    "# Netscape HTTP Cookie File\n"
+    ".reddit.com\tTRUE\t/\tTRUE\t0\treddit_session\tsecret\n"
+    "#HttpOnly_.reddit.com\tTRUE\t/\tTRUE\t0\ttoken_v2\ttoken\n"
+)
+
+
+def test_the_export_loads_as_a_jar_without_being_rewritten(tmp_path: Path) -> None:
+    export = tmp_path / "cookies.txt"
+    export.write_text(_EXPORT, encoding="utf-8")
+    before = export.stat()
+
+    jar = CookieSession(export, setting="X").jar()
+
+    assert jar is not None
+    # Session cookies (expiry 0) and HttpOnly ones are the session itself.
+    assert {cookie.name for cookie in jar} == {"reddit_session", "token_v2"}
+    assert export.stat().st_mtime_ns == before.st_mtime_ns
+
+
+def test_an_unreadable_export_means_no_jar(tmp_path: Path) -> None:
+    export = tmp_path / "cookies.txt"
+    export.write_text("not a cookie file", encoding="utf-8")
+
+    assert CookieSession(export, setting="X").jar() is None
+    assert CookieSession(None, setting="X").jar() is None
+
+
+def test_a_cookie_that_really_expired_is_left_out(tmp_path: Path) -> None:
+    export = tmp_path / "cookies.txt"
+    export.write_text(
+        "# Netscape HTTP Cookie File\n.reddit.com\tTRUE\t/\tTRUE\t1000\told\tx\n",
+        encoding="utf-8",
+    )
+
+    jar = CookieSession(export, setting="X").jar()
+
+    assert jar is not None
+    assert list(jar) == []

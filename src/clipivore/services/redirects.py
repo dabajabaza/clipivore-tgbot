@@ -13,7 +13,9 @@ Provider supplies its own allowlist and its own idea of a post link.
 
 import logging
 from collections.abc import Callable, Iterable
+from http.cookiejar import CookieJar
 from urllib.parse import urljoin, urlsplit
+from urllib.request import Request
 
 import aiohttp
 
@@ -40,6 +42,7 @@ async def follow(
     is_target: Callable[[str], bool],
     find_targets: Callable[[str], Iterable[str]],
     proxy: str | None = None,
+    cookies: CookieJar | None = None,
     outside_message: str,
 ) -> str:
     """Follow ``url`` until it lands on something ``is_target`` accepts.
@@ -47,6 +50,11 @@ async def follow(
     Raises `NotAPostLink` when the chain leaves the allowlist, runs too long, or
     ends somewhere that is not a post — those are user mistakes with a useful
     answer, not download failures. Network trouble raises `NetworkUnavailable`.
+
+    ``cookies`` go out only with hops that already passed the allowlist, and
+    only those the jar itself matches to the hop's domain and path. Some
+    platforms refuse anonymous requests from a server's address outright —
+    Reddit answers its own share links with 403 there.
     """
     timeout = aiohttp.ClientTimeout(total=RESOLVE_TIMEOUT_S)
     current = url
@@ -56,7 +64,12 @@ async def follow(
             for _ in range(MAX_REDIRECTS):
                 if not host_allowed(current, allowed_hosts):
                     raise NotAPostLink(outside_message)
-                async with session.get(current, proxy=proxy, allow_redirects=False) as response:
+                async with session.get(
+                    current,
+                    proxy=proxy,
+                    headers=_cookie_header(cookies, current),
+                    allow_redirects=False,
+                ) as response:
                     if response.status in _REDIRECT_STATUSES:
                         location = response.headers.get("Location")
                         if not location:
@@ -80,3 +93,13 @@ async def follow(
         if is_target(candidate):
             return candidate
     raise NotAPostLink(f"{url} does not lead to a post")
+
+
+def _cookie_header(cookies: CookieJar | None, url: str) -> dict[str, str]:
+    """The ``Cookie`` header ``cookies`` would send to ``url``, matched by the jar."""
+    if cookies is None:
+        return {}
+    request = Request(url)
+    cookies.add_cookie_header(request)
+    header = request.get_header("Cookie")
+    return {"Cookie": header} if header else {}
