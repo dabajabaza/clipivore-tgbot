@@ -49,8 +49,12 @@ async def server() -> AsyncIterator[TestServer]:
 
     app = web.Application()
     app.router.add_get("/r/CatJoy/s/qo5tcrjjqJ", share)
-    async with TestServer(app, host=HOST) as test_server:
+    test_server = TestServer(app, host=HOST)
+    await test_server.start_server()
+    try:
         yield test_server
+    finally:
+        await test_server.close()
 
 
 async def resolve(server: TestServer, cookies: CookieJar | None) -> str:
