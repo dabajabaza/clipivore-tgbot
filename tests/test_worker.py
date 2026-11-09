@@ -18,6 +18,7 @@ from clipivore.domain import Clip, DownloadProgress, ProgressCallback
 from clipivore.errors import (
     AuthExpired,
     DownloadTooLarge,
+    LinkRefused,
     NotAPostLink,
     NoVideoInPost,
     PostUnavailable,
@@ -874,6 +875,46 @@ class TestTheWorkerGoesThroughTheProviderToResolve:
             await drain(harness.queue)
 
         assert texts.NOT_A_POST.format(provider=PROVIDER_NAME) in edited_texts(harness)
+
+    async def test_a_refused_short_link_says_the_platform_refused(
+        self, harness: BotHarness, settings: Settings
+    ) -> None:
+        provider = make_provider_choice(
+            downloader=FakeDownloader(),
+            resolve=_raising(LinkRefused("https://t.co/AbC123 answered 403", status=403)),
+        )
+        worker = build_worker(harness, settings)
+
+        async with running(worker):
+            harness.queue.submit(
+                make_request(harness, url="https://t.co/AbC123", provider=provider)
+            )
+            await drain(harness.queue)
+
+        assert texts.LINK_REFUSED.format(provider=PROVIDER_NAME) in edited_texts(harness)
+
+    async def test_a_session_failing_while_resolving_still_reaches_the_owner(
+        self, harness: BotHarness, settings: Settings, tmp_path: Path
+    ) -> None:
+        # Reddit share links: the session is spent before any download starts.
+        export = tmp_path / "cookies.txt"
+        export.write_text("stale")
+        provider = make_provider_choice(
+            downloader=FakeDownloader(),
+            cookies=CookieSession(export, setting="REDDIT_COOKIES_FILE"),
+            resolve=_raising(AuthExpired("Reddit answered 403 to a share link")),
+        )
+        alerts = OwnerAlerts(harness.bot, owner_id=settings.owner_id)
+        worker = build_worker(harness, settings, alerts=alerts)
+
+        async with running(worker):
+            harness.queue.submit(make_request(harness, provider=provider))
+            await drain(harness.queue)
+
+        [alert] = harness.session.calls_of(SendMessage)
+        assert alert.chat_id == settings.owner_id
+        assert str(export) in alert.text
+        assert texts.AUTH_EXPIRED.format(provider=PROVIDER_NAME) in edited_texts(harness)
 
 
 def _always(target: str) -> Callable[[str], Awaitable[str]]:

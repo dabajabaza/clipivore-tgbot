@@ -19,7 +19,7 @@ from urllib.request import Request
 
 import aiohttp
 
-from clipivore.errors import NetworkUnavailable, NotAPostLink
+from clipivore.errors import LinkRefused, NetworkUnavailable, NotAPostLink
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,9 @@ MAX_REDIRECTS = 5
 # redirect; the target is in the body, and this much of it is plenty.
 _INTERSTITIAL_BYTES = 64 * 1024
 _REDIRECT_STATUSES = (301, 302, 303, 307, 308)
+# A block page is not a destination: reading it for a post link would turn
+# "the platform said no" into "your link is wrong".
+_REFUSED_STATUSES = (401, 403)
 
 
 def host_allowed(url: str, allowed_hosts: frozenset[str]) -> bool:
@@ -49,7 +52,8 @@ async def follow(
 
     Raises `NotAPostLink` when the chain leaves the allowlist, runs too long, or
     ends somewhere that is not a post — those are user mistakes with a useful
-    answer, not download failures. Network trouble raises `NetworkUnavailable`.
+    answer, not download failures. A hop the platform refuses (401/403) raises
+    `LinkRefused`. Network trouble raises `NetworkUnavailable`.
 
     ``cookies`` go out only with hops that already passed the allowlist, and
     only those the jar itself matches to the hop's domain and path. Some
@@ -80,6 +84,10 @@ async def follow(
                         continue
                     if is_target(str(response.url)):
                         return str(response.url)
+                    if response.status in _REFUSED_STATUSES:
+                        raise LinkRefused(
+                            f"{current} answered {response.status}", status=response.status
+                        )
                     body = await response.content.read(_INTERSTITIAL_BYTES)
                     break
             else:

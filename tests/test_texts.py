@@ -40,6 +40,7 @@ def test_every_placeholder_is_one_the_caller_actually_supplies() -> None:
         "HELP_PROVIDER": {"provider", "hint"},
         "HELP_PROVIDER_BROKEN": {"provider"},
         "NOT_A_POST": {"provider"},
+        "LINK_REFUSED": {"provider"},
         "PROVIDER_MISCONFIGURED": {"provider"},
         "OPEN_IN": {"provider"},
         "NETWORK_UNAVAILABLE": {"provider"},

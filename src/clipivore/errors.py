@@ -19,6 +19,19 @@ class NotAPostLink(ClipivoreError):
     """A short link that turned out to point somewhere other than a post."""
 
 
+class LinkRefused(ClipivoreError):
+    """The platform refused to open a short link for the bot (401 or 403).
+
+    Not the same as "not a post": the link may well be fine, the server's
+    address just is not let through. A Provider whose session decides this
+    turns it into `AuthExpired`; for the rest it is the verdict itself.
+    """
+
+    def __init__(self, message: str, *, status: int) -> None:
+        super().__init__(message)
+        self.status = status
+
+
 class NoVideoInPost(ClipivoreError):
     """The post exists and is readable, it just has no video in it."""
 
