@@ -7,7 +7,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
-from clipivore.errors import NotAPostLink
+from clipivore.errors import LinkRefused
 from clipivore.services.redirects import follow
 
 HOST = "127.0.0.1"
@@ -74,13 +74,18 @@ async def test_the_session_gets_a_share_link_past_the_block(server: TestServer) 
     assert resolved == str(server.make_url("/r/CatJoy/comments/1xngwj6/title/"))
 
 
-async def test_without_the_session_the_block_is_not_a_post(server: TestServer) -> None:
-    with pytest.raises(NotAPostLink):
+async def test_without_the_session_the_block_is_a_refusal_not_a_wrong_link(
+    server: TestServer,
+) -> None:
+    # Reading the block page for a post link used to end as "doesn't lead to a
+    # post", which blamed the person for the platform saying no.
+    with pytest.raises(LinkRefused) as refused:
         await resolve(server, None)
+    assert refused.value.status == 403
 
 
 async def test_cookies_for_another_domain_are_not_sent(server: TestServer) -> None:
     # The jar decides per hop, so a session never leaks to a host it was not
     # issued for, even one the allowlist lets through.
-    with pytest.raises(NotAPostLink):
+    with pytest.raises(LinkRefused):
         await resolve(server, jar_for("reddit.com"))

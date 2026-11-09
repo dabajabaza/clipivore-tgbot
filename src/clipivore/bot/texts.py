@@ -39,6 +39,9 @@ HELP_COMMAND_DESCRIPTION = "What I can download"
 
 NO_LINK = "No link I recognise. Send me a link to a post — /help lists what I can download."
 NOT_A_POST = "That short link doesn't lead to a post on {provider}."
+LINK_REFUSED = (
+    "{provider} refused to open that short link for the bot. Send the full link to the post."
+)
 PROVIDER_MISCONFIGURED = (
     "Downloads from {provider} are configured incorrectly. The owner needs to check the bot's log."
 )

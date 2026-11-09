@@ -12,6 +12,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from clipivore.domain import Downloader
+from clipivore.errors import AuthExpired, LinkRefused
 from clipivore.services.cookies import CookieSession
 from clipivore.services.downloader import EngineProfile, YtDlpDownloader
 from clipivore.services.providers import Provider, ProviderContext
@@ -92,17 +93,25 @@ class RedditProvider(Provider):
     async def resolve(self, url: str) -> str:
         if not self.is_short(url):
             return url
-        return await follow(
-            url,
-            allowed_hosts=_ALLOWED_HOSTS,
-            is_target=lambda candidate: bool(_POST_LINK.match(candidate)),
-            find_targets=_posts_in,
-            proxy=self._proxy,
-            # Without the session Reddit answers a share link from the server's
-            # address with "blocked by network security" (403).
-            cookies=self._cookies.jar(),
-            outside_message=f"{url} leads outside Reddit",
-        )
+        jar = self._cookies.jar()
+        try:
+            return await follow(
+                url,
+                allowed_hosts=_ALLOWED_HOSTS,
+                is_target=lambda candidate: bool(_POST_LINK.match(candidate)),
+                find_targets=_posts_in,
+                proxy=self._proxy,
+                # Without the session Reddit answers a share link from the
+                # server's address with "blocked by network security" (403).
+                cookies=jar,
+                outside_message=f"{url} leads outside Reddit",
+            )
+        except LinkRefused as exc:
+            # From the server only the owner's session gets a share link
+            # through, so a refusal means that session is missing or dead —
+            # which is exactly what the owner alert is for.
+            session = "no session was sent" if jar is None else "the session was refused"
+            raise AuthExpired(f"Reddit answered {exc.status} to a share link ({session})") from exc
 
 
 def _posts_in(text: str) -> list[str]:

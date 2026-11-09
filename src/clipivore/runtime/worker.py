@@ -28,6 +28,7 @@ from clipivore.errors import (
     ClipivoreError,
     DownloadFailed,
     DownloadTooLarge,
+    LinkRefused,
     NetworkUnavailable,
     NotAPostLink,
     NoVideoInPost,
@@ -47,6 +48,7 @@ logger = logging.getLogger(__name__)
 # for all of them and no platform needs a string table of its own.
 _REPLY_FOR: dict[type[ClipivoreError], str] = {
     NotAPostLink: texts.NOT_A_POST,
+    LinkRefused: texts.LINK_REFUSED,
     NoVideoInPost: texts.NO_VIDEO,
     PostUnavailable: texts.POST_UNAVAILABLE,
     NetworkUnavailable: texts.NETWORK_UNAVAILABLE,

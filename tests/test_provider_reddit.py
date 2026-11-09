@@ -5,7 +5,13 @@ from pathlib import Path
 import pytest
 from yt_dlp.utils import DownloadError
 
-from clipivore.errors import AuthExpired, DownloadFailed, NoVideoInPost, PostUnavailable
+from clipivore.errors import (
+    AuthExpired,
+    DownloadFailed,
+    LinkRefused,
+    NoVideoInPost,
+    PostUnavailable,
+)
 from clipivore.providers import reddit
 from clipivore.providers.reddit import RedditProvider
 from clipivore.services import downloader
@@ -108,6 +114,32 @@ async def test_a_share_link_carries_the_owner_session(
     jar = seen["cookies"]
     assert jar is not None
     assert [cookie.name for cookie in jar] == ["reddit_session"]  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    ("configured", "detail"),
+    [(False, "no session was sent"), (True, "the session was refused")],
+)
+async def test_a_refused_share_link_is_the_owner_session_failing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, configured: bool, detail: str
+) -> None:
+    # From the server only the owner's session gets a share link through, so
+    # this is the alert-worthy failure, not a link the person got wrong.
+    if configured:
+        export = tmp_path / "cookies.txt"
+        export.write_text(
+            "# Netscape HTTP Cookie File\n.reddit.com\tTRUE\t/\tTRUE\t0\treddit_session\tx\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("REDDIT_COOKIES_FILE", str(export))
+
+    async def refusing_follow(url: str, **kwargs: object) -> str:
+        raise LinkRefused(f"{url} answered 403", status=403)
+
+    monkeypatch.setattr(reddit, "follow", refusing_follow)
+
+    with pytest.raises(AuthExpired, match=detail):
+        await RedditProvider(ProviderContext()).resolve("https://redd.it/6rrwyj")
 
 
 @pytest.mark.parametrize(
