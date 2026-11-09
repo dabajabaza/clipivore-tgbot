@@ -86,6 +86,30 @@ async def test_a_share_link_uses_the_restricted_redirect_follower(
     assert seen["outside_message"] == "https://redd.it/6rrwyj leads outside Reddit"
 
 
+async def test_a_share_link_carries_the_owner_session(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Reddit answers anonymous share links from the server's address with 403.
+    export = tmp_path / "cookies.txt"
+    export.write_text(
+        "# Netscape HTTP Cookie File\n.reddit.com\tTRUE\t/\tTRUE\t0\treddit_session\tx\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("REDDIT_COOKIES_FILE", str(export))
+    seen: dict[str, object] = {}
+
+    async def fake_follow(url: str, **kwargs: object) -> str:
+        seen.update(kwargs)
+        return POST
+
+    monkeypatch.setattr(reddit, "follow", fake_follow)
+    await RedditProvider(ProviderContext()).resolve("https://www.reddit.com/r/CatJoy/s/qo5tcrjjqJ")
+
+    jar = seen["cookies"]
+    assert jar is not None
+    assert [cookie.name for cookie in jar] == ["reddit_session"]  # type: ignore[attr-defined]
+
+
 @pytest.mark.parametrize(
     ("message", "expected"),
     [
